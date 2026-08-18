@@ -1,43 +1,116 @@
-# Implementing a Feedforward Neural Network using TensorFlow or PyTorch
+# Feedforward Neural Network for Financial Market Direction Prediction
 
-## What is Happening and Why
+**Practical 3** — a PyTorch feedforward neural network (multi-layer perceptron) that predicts whether a stock's next-day return will be positive or negative, using synthetic technical-indicator data. This practical builds directly on **Practical 1** (a single-layer Perceptron) and demonstrates why stacking hidden layers with non-linear activations lets a network learn patterns a plain Perceptron cannot.
 
-### 1. Why use PyTorch instead of TensorFlow?
+## Overview
 
-**What it is:** PyTorch is a highly popular AI library created by Meta (Facebook).
+Financial markets rarely respond to indicators in a simple, linear way — momentum, overbought/oversold conditions, and volatility tend to interact with each other. A single-layer Perceptron can only draw a straight-line decision boundary between "positive return" and "negative return" days, so it misses these interaction effects.
 
-**Why it is used:** While TensorFlow acts like a factory assembly line where everything is built ahead of time, PyTorch feels like writing standard Python code. It is highly flexible and explicit, making it the favorite tool for AI researchers building modern LLMs.
+This notebook implements a small feedforward neural network that:
 
-### 2. Why write an explicit class structure?
+- Takes five daily technical indicators as input
+- Passes them through two hidden layers with ReLU activations
+- Outputs a probability of a positive next-day return via a sigmoid output layer
+- Trains with backpropagation (BCE loss + Adam optimizer) instead of the manual weight-update rule used in Practical 1
+- Is benchmarked directly against the Practical 1 Perceptron on the same data, to make the improvement concrete rather than assumed
 
-**What it is:**
-```python
-class FeedforwardNN(nn.Module):
+
+## Model Architecture
+
+```
+Input (5 features) → Linear(5→16) → ReLU → Linear(16→8) → ReLU → Linear(8→1) → Sigmoid
 ```
 
-**Why it is used:** PyTorch forces you to design your AI network explicitly. You define the physical components inside `__init__` (the layers and filters), and you explicitly detail the flow of data inside the `forward` function. This blueprint structure gives you total control over how information flows through the network.
+| Layer | Type | Size | Activation |
+|---|---|---|---|
+| Input | — | 5 | — |
+| Hidden 1 | Linear | 16 | ReLU |
+| Hidden 2 | Linear | 8 | ReLU |
+| Output | Linear | 1 | Sigmoid |
 
-### 3. Why are there three lines (`zero_grad`, `backward`, `step`) in the loop?
+## Features and Label
 
-**What they are:** This is the core engine of PyTorch learning.
+| Feature | Description |
+|---|---|
+| Daily Return (%) | Today's percentage price change |
+| RSI | Relative Strength Index (momentum, 0–100) |
+| Volume Change (%) | Change in trading volume vs. recent average |
+| MACD | Moving Average Convergence Divergence signal |
+| Volatility (%) | Rolling standard deviation of recent returns |
 
-- **`optimizer.zero_grad()`** — Clears out old math notes from the previous round so they don't mess up the new feedback.
-- **`loss.backward()`** — A highly advanced mathematical process called *Backpropagation*. It calculates the exact amount of blame every single weight and bias dial deserves for the final mistake.
-- **`optimizer.step()`** — Takes that blame list and physically twists every single dial across the entire network in the correct direction.
+**Label:** `1` = tomorrow's return was positive, `0` = tomorrow's return was negative.
 
-### 4. Why use `with torch.no_grad():` at the end?
+## What's in the Notebook
 
-**What it is:** This turns off PyTorch's internal "learning and tracking mode."
+1. Introduction and objective
+2. Why move from a Perceptron to a feedforward network (non-linearity, interaction effects)
+3. Synthetic dataset generation (800 samples, non-linear labeling rule)
+4. Train/test split and feature standardization
+5. `FeedforwardNN` model definition (PyTorch `nn.Module`)
+6. Loss function and optimizer setup
+7. Training loop with per-epoch loss logging
+8. Training loss curve plot
+9. Evaluation on held-out test data (accuracy, confusion matrix, classification report)
+10. Sample predictions with confidence scores
+11. Head-to-head comparison against the Practical 1 Perceptron
+12. Limitations of this approach for real-world finance
+13. Better alternatives (Random Forest, XGBoost, LSTM, Transformers, Reinforcement Learning)
+14. Summary comparison table
 
-**Why it is used:** When testing the model, you don't want it to keep updating its dials or wasting computer memory tracking mistakes. This command sets the AI into a strict "read-only" evaluation mode.
+## Results
 
-## Simplified Output Explanation
+On the synthetic held-out test set:
 
-| Input       | Confidence | Explanation |
-|-------------|:----------:|-------------|
-| `[0.0, 0.0]` | 20.82% | The AI sees no input activity, keeping its confidence very low and well below the 50% threshold (Class 0). |
-| `[0.0, 1.0]` | 23.71% | Only one input is on, which fails to convince the panel; the score remains low (Class 0). |
-| `[1.0, 0.0]` | 31.24% | Again, a single active input is not enough to pass the strict rule, staying below 50% (Class 0). |
-| `[1.0, 1.0]` | 73.44% | Both inputs fire simultaneously, causing the AI's confidence to surge way past 50% (Class 1). |
-</content>
-</invoke>
+| Model | Test Accuracy |
+|---|---|
+| Perceptron (Practical 1) | ~77% |
+| Feedforward Neural Network (Practical 2) | ~84% |
+
+Exact numbers vary slightly by random seed and are printed when the notebook runs.
+
+## Requirements
+
+- Python 3.9+
+- `torch`
+- `numpy`
+- `scikit-learn`
+- `matplotlib`
+- `jupyter` / `notebook` (or JupyterLab / VS Code) to run the `.ipynb`
+
+## Setup
+
+```bash
+python3 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+
+pip install torch numpy scikit-learn matplotlib jupyter
+```
+
+## Running
+
+```bash
+jupyter notebook Practical_2_Feedforward_NN_Quant_Finance.ipynb
+```
+
+Or run it end-to-end from the command line:
+
+```bash
+jupyter nbconvert --to notebook --execute --inplace Practical_2_Feedforward_NN_Quant_Finance.ipynb
+```
+
+
+
+## Limitations
+
+- Treats each trading day independently — no memory of past sequences
+- Synthetic data only; not fitted to real market data
+- Prone to overfitting if the network is scaled up without regularization
+- A "black box" relative to simpler, more interpretable models like logistic regression
+
+## Next Steps
+
+- Swap the synthetic dataset for real historical price/indicator data
+- Add Dropout / Batch Normalization / L2 regularization
+- Extend to sequence models (LSTM, GRU, Transformers) to capture temporal dependencies
+- Compare against gradient-boosted trees (XGBoost, LightGBM) as a non-neural baseline
+

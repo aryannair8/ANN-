@@ -1,113 +1,135 @@
-# Implementing a Multi-Layer Perceptron (MLP) using TensorFlow
+# CNN for Candlestick Chart Trend Classification
 
-## What is Happening and Why
+**Practical 5** — a TensorFlow/Keras Convolutional Neural Network (CNN) that classifies candlestick chart images as **Uptrend** or **Downtrend**, using real historical stock price data (Apple Inc., AAPL). This is the standard "two-class image classification" exercise — the same structure as the classic Cats vs Dogs CNN tutorial — adapted to the quant finance domain by using candlestick chart images as the two classes instead of animal photos.
 
-### 1. Why use a Multi-Layer Perceptron (MLP)?
+## Overview
 
-**What it is:**
-A Multi-Layer Perceptron (MLP) is one of the simplest forms of an Artificial Neural Network. It consists of an input layer, one or more hidden layers, and an output layer connected through neurons.
+Rather than feeding a network hand-engineered numeric indicators (as in Practical 2), this practical treats a rolling window of daily price action as an **image** — a rendered candlestick chart — and trains a CNN to visually recognize whether that chart's own trend is upward or downward. This is the same kind of pattern recognition a technical analyst performs by eye, and it is the foundational building block behind any chart-pattern-recognition system.
 
-**Why it is used:**
-An MLP learns patterns from input data by adjusting its weights during training. It is commonly used for classification and regression problems involving structured or tabular data.
+**Scope note:** this notebook classifies the trend that is already visible within each chart image. It does not claim to forecast future, not-yet-visible price movement — that is a substantially harder problem, discussed explicitly in the notebook's Limitations section along with why chart-shape-only forecasting tends to perform close to random.
 
----
+## Model Architecture
 
-### 2. Why use ReLU in the hidden layers?
-
-**What it is:**
-ReLU (Rectified Linear Unit) is an activation function defined as:
-
-```python
-f(x) = max(0, x)
+```
+Input (64×64×3) → Conv2D(8) → ReLU → MaxPool → Conv2D(16) → ReLU → MaxPool → Flatten → Dense(16) → ReLU → Dropout(0.3) → Dense(1) → Sigmoid
 ```
 
-**Why it is used:**
-Without an activation function, stacking multiple Dense layers would behave like a single linear layer. ReLU introduces non-linearity, allowing the network to learn complex relationships while also training faster than older activation functions like Sigmoid or Tanh.
+| Layer | Type | Details |
+|---|---|---|
+| Input | — | 64 × 64 RGB candlestick chart image |
+| Conv Block 1 | Conv2D + MaxPooling2D | 8 filters, 3×3, ReLU |
+| Conv Block 2 | Conv2D + MaxPooling2D | 16 filters, 3×3, ReLU |
+| Flatten | — | — |
+| Dense | Fully connected | 16 units, ReLU |
+| Dropout | Regularization | rate 0.3 |
+| Output | Dense | 1 unit, Sigmoid → P(Uptrend) |
 
----
+The network is kept deliberately small: with roughly 480 labeled chart images, a large CNN would simply memorize the training set rather than learn the general visual concept of "uptrend" vs "downtrend."
 
-### 3. Why use Sigmoid in the output layer?
+## Dataset
 
-**What it is:**
-Sigmoid converts the final output into a probability between 0 and 1.
+- **Source:** real daily OHLCV data for AAPL (Apple Inc.), Feb 2015 – Feb 2017, pulled from a public dataset hosted on GitHub (`plotly/datasets/finance-charts-apple.csv`).
+- **Image generation:** each 20-trading-day rolling window is rendered as a candlestick chart image using `mplfinance` (no axes or labels — a pure visual pattern, like a cropped chart screenshot).
+- **Label:** `Uptrend` if the closing price on the last day of the window is higher than on the first day; `Downtrend` otherwise.
+- **Split:** the timeline is cut into contiguous blocks, and whole blocks are randomly assigned to train / validation / test. This avoids leaking near-duplicate overlapping windows across splits while still mixing both trend regimes into every split.
 
-**Why it is used:**
-Since the AND gate has only two possible outputs (0 or 1), Sigmoid is the appropriate activation function for binary classification.
+| Split | Images |
+|---|---|
+| Train | ~340 |
+| Validation | ~46 |
+| Test | ~100 |
 
----
+## What's in the Notebook
 
-### 4. Why use the Adam Optimizer?
+1. Introduction and objective
+2. Why a CNN instead of a plain feedforward network (visual pattern recognition vs numeric indicators)
+3. Loading real AAPL OHLCV data
+4. Candlestick chart image generation from rolling windows, with labeling logic
+5. Sample chart image previews by class
+6. Block-based train/validation/test split (leakage-aware)
+7. Loading images into tensors
+8. CNN model definition (`Sequential` Conv2D/MaxPooling/Dense stack)
+9. Compilation (binary cross-entropy loss, Adam optimizer)
+10. Training loop with early stopping
+11. Training accuracy/loss curves
+12. Evaluation on held-out test data (accuracy, confusion matrix, classification report)
+13. Sample predictions with confidence scores, randomly sampled across the test set
+14. Explicit discussion of what the model has and has not demonstrated
+15. Limitations
+16. Better alternatives (CNN+LSTM hybrids, Vision Transformers, transfer learning, reinforcement learning)
+17. Summary comparison with Practical 2
 
-**What it is:**
-Adam is an optimization algorithm used to update the weights of the neural network during training.
+## Results
 
-**Why it is used:**
-Instead of using a fixed learning rate, Adam automatically adapts the learning rate for every parameter, making training faster and more stable. It is one of the most commonly used optimizers in deep learning.
+On the held-out test set (block-based split, unseen chart images):
 
----
+| Metric | Value |
+|---|---|
+| Test Accuracy | ~87–90% |
+| Test Loss (BCE) | ~0.27–0.29 |
 
-### 5. Why use Binary Cross-Entropy Loss?
+Both classes (Uptrend and Downtrend) are predicted with balanced precision and recall — training and validation curves show the model converging without collapsing to a single predicted class. Exact numbers vary slightly by random seed and are printed when the notebook runs.
 
-**What it is:**
-Binary Cross-Entropy measures how different the predicted probability is from the actual class.
+## Requirements
 
-**Why it is used:**
-Since this project performs binary classification (0 or 1), Binary Cross-Entropy is more suitable than Mean Squared Error because it penalizes incorrect confident predictions more effectively.
+- Python 3.9+
+- `tensorflow`
+- `mplfinance`
+- `pandas`, `numpy`
+- `scikit-learn`
+- `matplotlib`
+- `jupyter` / `notebook` (or JupyterLab / VS Code) to run the `.ipynb`
 
----
+## Setup
 
-### 6. Why use the AND Gate Dataset?
+```bash
+python3 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 
-**What it is:**
-The AND gate is one of the simplest logical datasets used in machine learning.
+pip install tensorflow mplfinance pandas numpy scikit-learn matplotlib jupyter
+```
 
-| Input | Output |
-| ----- | ------ |
-| 0,0   | 0      |
-| 0,1   | 0      |
-| 1,0   | 0      |
-| 1,1   | 1      |
+## Running
 
-**Why it is used:**
-The dataset is extremely small, making it easy to understand how an MLP learns without being distracted by large datasets.
+```bash
+jupyter notebook Practical_5_CNN_Candlestick_Classification.ipynb
+```
 
----
+Or run it end-to-end from the command line:
 
-### 7. How is MLP used in Image Recognition?
+```bash
+jupyter nbconvert --to notebook --execute --inplace Practical_5_CNN_Candlestick_Classification.ipynb
+```
 
-**What it is:**
-Images are represented as numerical pixel values before being passed into the network.
+The notebook downloads the AAPL price data from a public GitHub-hosted CSV at runtime, so an internet connection is required on first run. Rendered candlestick images are cached to a local `candlestick_images/` folder so re-running the notebook does not regenerate images that already exist.
 
-**How it works:**
-A grayscale image of size **28 × 28** contains **784 pixels**. These pixels are flattened into a one-dimensional vector and fed into the MLP. The hidden layers learn patterns from these pixel values, while the output layer predicts the image class.
+## Repository Structure
 
-**Limitation:**
-Flattening removes the spatial relationship between neighbouring pixels. Because of this, MLPs struggle with complex image recognition tasks, and Convolutional Neural Networks (CNNs) are generally preferred.
+```
+.
+├── Practical_1_Perceptron.ipynb                      # single-layer Perceptron baseline
+├── Practical_2_Feedforward_NN_Quant_Finance.ipynb     # feedforward NN on numeric indicators
+├── Practical_5_CNN_Candlestick_Classification.ipynb   # this notebook
+├── candlestick_images/                                # generated chart images (created on first run)
+└── README.md
+```
 
----
+## Limitations
 
-### 8. How is MLP used in Finance?
+- Classifies the trend already visible within a chart image — does not, by itself, predict future price movement (a much harder problem; early tests attempting to forecast direction several days ahead performed close to random on this same pipeline)
+- Small dataset — a single ticker (AAPL) over ~2 years, limiting the variety of market regimes seen
+- Overlapping rolling windows are correlated with their neighbors, reducing the amount of truly independent training signal
+- Chart-image classification discards useful numeric context (volume, broader market conditions, macro events)
+- Financial markets are noisy and non-stationary, which is a core reason forecasting future returns is fundamentally harder than recognizing a past, already-visible trend
 
-**What it is:**
-MLPs can learn relationships between financial indicators and future outcomes.
+## Next Steps
 
-**Applications:**
+- Extend to multiple tickers and longer historical spans for more regime diversity
+- Add Batch Normalization and stronger regularization for a deeper CNN
+- Combine with an LSTM/ConvLSTM to incorporate temporal sequence information across many charts
+- Explore transfer learning from a pretrained image model (e.g. ResNet, EfficientNet)
+- Compare against classical technical-pattern-recognition rules as a baseline
 
-* Credit risk prediction
-* Loan default prediction
-* Fraud detection
-* Stock movement prediction using engineered features
+## License
 
-**Limitation:**
-Financial markets are noisy and constantly changing. A basic MLP can memorize historical patterns instead of learning meaningful relationships, causing overfitting. For this reason, feature engineering, regularization, and proper validation techniques are essential.
-
----
-
-## Simplified Output Explanation
-
-| Input    | Confidence | Explanation                                                                 |
-| -------- | :--------: | --------------------------------------------------------------------------- |
-| `[0, 0]` |     Low    | Both inputs are 0, so the model predicts Class 0.                           |
-| `[0, 1]` |     Low    | Only one input is active, which does not satisfy the AND condition.         |
-| `[1, 0]` |     Low    | Again, only one input is active, so the prediction remains Class 0.         |
-| `[1, 1]` |    High    | Both inputs are active, satisfying the AND condition, resulting in Class 1. |
+Educational use. No investment advice.
