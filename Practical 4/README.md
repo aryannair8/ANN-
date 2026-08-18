@@ -1,113 +1,117 @@
-# Implementing a Multi-Layer Perceptron (MLP) using TensorFlow
+# Keras MLP for Multiclass Classification — Trading Signal (Buy / Hold / Sell)
 
-## What is Happening and Why
+**Practical 4** — a small Multi-Layer Perceptron (MLP) built with Keras that classifies a trading signal into three classes (**Buy**, **Hold**, **Sell**) from two simple technical features. Kept intentionally basic and easy to explain — the same spirit as a toy AND-gate example, just adapted to a finance domain and made genuinely multiclass.
 
-### 1. Why use a Multi-Layer Perceptron (MLP)?
+## Overview
 
-**What it is:**
-A Multi-Layer Perceptron (MLP) is one of the simplest forms of an Artificial Neural Network. It consists of an input layer, one or more hidden layers, and an output layer connected through neurons.
+This practical is a minimal, explainable example of multiclass classification with Keras. Instead of predicting a single binary outcome, the network outputs a probability distribution across three trading actions based on two indicators:
 
-**Why it is used:**
-An MLP learns patterns from input data by adjusting its weights during training. It is commonly used for classification and regression problems involving structured or tabular data.
+- **Daily Return (%)** — how much the price moved today
+- **RSI (Relative Strength Index)** — a momentum indicator (0–100)
 
----
+The model is a small `Sequential` MLP with a softmax output layer, trained on a tiny hand-picked dataset of 9 examples (3 per class) so the logic stays easy to trace end to end.
 
-### 2. Why use ReLU in the hidden layers?
+## Model Architecture
 
-**What it is:**
-ReLU (Rectified Linear Unit) is an activation function defined as:
-
-```python
-f(x) = max(0, x)
+```
+Input (2 features) → Dense(8, ReLU) → Dense(4, ReLU) → Dense(3, Softmax)
 ```
 
-**Why it is used:**
-Without an activation function, stacking multiple Dense layers would behave like a single linear layer. ReLU introduces non-linearity, allowing the network to learn complex relationships while also training faster than older activation functions like Sigmoid or Tanh.
+| Layer | Type | Size | Activation |
+|---|---|---|---|
+| Input | — | 2 | — |
+| Hidden 1 | Dense | 8 | ReLU |
+| Hidden 2 | Dense | 4 | ReLU |
+| Output | Dense | 3 | Softmax |
 
----
+Softmax outputs three probabilities that sum to 1 — one per class — instead of the single 0–1 probability a sigmoid output would give for binary classification.
 
-### 3. Why use Sigmoid in the output layer?
+## Features and Labels
 
-**What it is:**
-Sigmoid converts the final output into a probability between 0 and 1.
+| Feature | Description |
+|---|---|
+| Daily Return (%) | Today's percentage price change |
+| RSI | Momentum indicator (0–100); high = overbought, low = oversold |
 
-**Why it is used:**
-Since the AND gate has only two possible outputs (0 or 1), Sigmoid is the appropriate activation function for binary classification.
+| Label | Meaning |
+|---|---|
+| 0 — Sell | Falling price, overbought conditions |
+| 1 — Hold | No strong signal either way |
+| 2 — Buy | Rising price, oversold / recovering conditions |
 
----
+Labels are one-hot encoded (e.g. class 2 → `[0, 0, 1]`) for use with `categorical_crossentropy`.
 
-### 4. Why use the Adam Optimizer?
+## What's in the Notebook
 
-**What it is:**
-Adam is an optimization algorithm used to update the weights of the neural network during training.
+1. Imports and a small, hand-picked dataset (9 examples, 3 per class)
+2. Feature scaling (standardization) — explained inline, since Daily Return and RSI are on very different numeric scales
+3. MLP model definition (`Sequential` with Dense/ReLU/Softmax)
+4. Model compilation (categorical cross-entropy loss, Adam optimizer)
+5. Training loop
+6. Predictions with per-class probabilities and the predicted label
+7. A short discussion of MLP applications, including image recognition and finance-specific caveats (low signal-to-noise ratio, non-stationarity, overfitting risk)
 
-**Why it is used:**
-Instead of using a fixed learning rate, Adam automatically adapts the learning rate for every parameter, making training faster and more stable. It is one of the most commonly used optimizers in deep learning.
+## Results
 
----
+With feature scaling and a fixed random seed, the model reaches 100% training accuracy on the toy dataset, with confident, well-separated probabilities for each class. Exact probabilities are printed when the notebook runs.
 
-### 5. Why use Binary Cross-Entropy Loss?
+## Requirements
 
-**What it is:**
-Binary Cross-Entropy measures how different the predicted probability is from the actual class.
+- Python 3.9+
+- `tensorflow`
+- `numpy`
+- `jupyter` / `notebook` (or JupyterLab / VS Code) to run the `.ipynb`
 
-**Why it is used:**
-Since this project performs binary classification (0 or 1), Binary Cross-Entropy is more suitable than Mean Squared Error because it penalizes incorrect confident predictions more effectively.
+## Setup
 
----
+```bash
+python3 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 
-### 6. Why use the AND Gate Dataset?
+pip install tensorflow numpy jupyter
+```
 
-**What it is:**
-The AND gate is one of the simplest logical datasets used in machine learning.
+## Running
 
-| Input | Output |
-| ----- | ------ |
-| 0,0   | 0      |
-| 0,1   | 0      |
-| 1,0   | 0      |
-| 1,1   | 1      |
+```bash
+jupyter notebook Practical_4_Keras_MLP_Multiclass.ipynb
+```
 
-**Why it is used:**
-The dataset is extremely small, making it easy to understand how an MLP learns without being distracted by large datasets.
+Or run it end-to-end from the command line:
 
----
+```bash
+jupyter nbconvert --to notebook --execute --inplace Practical_4_Keras_MLP_Multiclass.ipynb
+```
 
-### 7. How is MLP used in Image Recognition?
+## Repository Structure
 
-**What it is:**
-Images are represented as numerical pixel values before being passed into the network.
+```
+.
+├── Practical_1_Perceptron.ipynb                       # single-layer Perceptron baseline
+├── Practical_2_Feedforward_NN_Quant_Finance.ipynb      # feedforward NN on numeric indicators
+├── Practical_4_Keras_MLP_Multiclass.ipynb              # this notebook
+├── Practical_5_CNN_Candlestick_Classification.ipynb    # CNN on candlestick chart images
+└── README.md
+```
 
-**How it works:**
-A grayscale image of size **28 × 28** contains **784 pixels**. These pixels are flattened into a one-dimensional vector and fed into the MLP. The hidden layers learn patterns from these pixel values, while the output layer predicts the image class.
+## Why Feature Scaling Matters Here
 
-**Limitation:**
-Flattening removes the spatial relationship between neighbouring pixels. Because of this, MLPs struggle with complex image recognition tasks, and Convolutional Neural Networks (CNNs) are generally preferred.
+Daily Return (roughly −3 to +3) and RSI (roughly 0–100) are on very different numeric scales. Without scaling, RSI dominates the network's early learning simply because its raw numbers are larger — not because it is actually more informative. Standardizing both features to mean 0 and standard deviation 1 lets the network weigh them fairly, and is what makes this tiny dataset learnable in the first place.
 
----
+## Limitations
 
-### 8. How is MLP used in Finance?
+- Toy dataset (9 examples) — meant for explaining the mechanics of a Keras MLP, not for real trading decisions
+- Financial data has a low signal-to-noise ratio and market relationships change over time (non-stationarity)
+- A plain MLP can easily memorize noise rather than learn a generalizable pattern, especially on small datasets
+- No train/test split — this notebook is a worked example of the training mechanics, not a generalization benchmark
 
-**What it is:**
-MLPs can learn relationships between financial indicators and future outcomes.
+## Next Steps
 
-**Applications:**
+- Add a proper train/validation/test split and evaluate on held-out data
+- Use real historical indicator data instead of hand-picked examples (see Practical 2)
+- Add more features (MACD, volatility, volume) and compare against simpler baselines like logistic regression
+- Explore class probabilities as a confidence signal rather than only the arg-max prediction
 
-* Credit risk prediction
-* Loan default prediction
-* Fraud detection
-* Stock movement prediction using engineered features
+## License
 
-**Limitation:**
-Financial markets are noisy and constantly changing. A basic MLP can memorize historical patterns instead of learning meaningful relationships, causing overfitting. For this reason, feature engineering, regularization, and proper validation techniques are essential.
-
----
-
-## Simplified Output Explanation
-
-| Input    | Confidence | Explanation                                                                 |
-| -------- | :--------: | --------------------------------------------------------------------------- |
-| `[0, 0]` |     Low    | Both inputs are 0, so the model predicts Class 0.                           |
-| `[0, 1]` |     Low    | Only one input is active, which does not satisfy the AND condition.         |
-| `[1, 0]` |     Low    | Again, only one input is active, so the prediction remains Class 0.         |
-| `[1, 1]` |    High    | Both inputs are active, satisfying the AND condition, resulting in Class 1. |
+Educational use. No investment advice.
